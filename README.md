@@ -1,3 +1,5 @@
+![TheStack_small](https://github.com/user-attachments/assets/4fa72f89-d02a-4971-97eb-fbb7f3ca3175)
+
 # **The Stack Game**
 
 **The Stack Game** is a remake of the popular stack game, designed for mobile platforms using Unity. This game emphasizes efficient resource utilization and performance optimization.
