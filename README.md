@@ -16,5 +16,5 @@
 - **UIManager.cs:** Updates UI elements based on game state events.
 ## *Future Plans*
 - sound effects
-- implement placement effects
-- Improve UI with a game over screen and main menu
+- implementing placement effects
+- improving ui
