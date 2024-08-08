@@ -15,6 +15,6 @@
 - **TheStack.cs:** Controls tile placement, movement, and score updates, integrating game mechanics with visual changes.
 - **UIManager.cs:** Updates UI elements based on game state events.
 ## *Future Plans*
-- Add more sound effects
-- Implement placement effects
+- sound effects
+- implement placement effects
 - Improve UI with a game over screen and main menu
