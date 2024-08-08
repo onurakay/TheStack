@@ -1,10 +1,10 @@
 using UnityEngine;
-using TMPro; // Import TextMesh Pro namespace
+using TMPro;
 
 public class UIManager : MonoBehaviour
 {
     [SerializeField] private TextMeshProUGUI scoreText;
-    [SerializeField] private GameObject comboField; // Reference to the streak field GameObject
+    [SerializeField] private GameObject comboField;
 
     void OnEnable()
     {
@@ -27,10 +27,8 @@ public class UIManager : MonoBehaviour
     {
         if (combo > 0)
         {
-            // Show streak field
             comboField.SetActive(true);
 
-            // Assuming comboField contains a TextMeshProUGUI component for the streak score combo
             TextMeshProUGUI streakScoreComboText = comboField.GetComponentInChildren<TextMeshProUGUI>();
             if (streakScoreComboText != null)
             {
@@ -39,7 +37,6 @@ public class UIManager : MonoBehaviour
         }
         else
         {
-            // Hide streak field
             comboField.SetActive(false);
         }
     }

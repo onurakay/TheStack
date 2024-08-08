@@ -16,7 +16,6 @@ public class TheStack : MonoBehaviour
     const float stackBoundsGain = 0.25f;
     const float comboStartGain = 3f;
 
-    // Private Variables
     GameObject[] theStack;
     Vector2 stackBounds = new Vector2(boundsSize, boundsSize);
     int currentStackIndex;
@@ -65,15 +64,12 @@ public class TheStack : MonoBehaviour
             }
             else
             {
-                // end the game
                 UnityEngine.SceneManagement.SceneManager.LoadScene(
                 UnityEngine.SceneManagement.SceneManager.GetActiveScene().name);
             }
         }
 
         MoveTile();
-
-        // move the stack
         transform.position = Vector3.Lerp(transform.position, targetPosition, 
             stackMovingSpeed * Time.deltaTime);
     }
@@ -146,7 +142,6 @@ public class TheStack : MonoBehaviour
                 float middle = lastTilePosition.x + t.localPosition.x / 2f;
                 t.localScale = new Vector3(stackBounds.x, 1f, stackBounds.y);
 
-                // create the part that is going to fall down
                 CreateRubble(
                     new Vector3((t.position.x > 0) ?
                         t.position.x + (t.localScale.x / 2f) : t.position.x -
@@ -234,7 +229,6 @@ public class TheStack : MonoBehaviour
         rubble.transform.localScale = scale;
         rubble.GetComponent<Rigidbody>().velocity = Vector3.zero;
 
-        // Optionally set color and material here
         rubble.GetComponent<MeshRenderer>().material = stackMat;
         ColorMesh(rubble.GetComponent<MeshFilter>().mesh);
     }

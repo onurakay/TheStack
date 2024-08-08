@@ -24,16 +24,13 @@ public class RubblePool : MonoBehaviour
     {
         if (rubblePool.Count == 0)
         {
-            // The pool is empty, but we won't create more. 
-            // You might log a warning here if needed.
             return null; 
         }
 
         GameObject rubble = rubblePool.Dequeue();
         rubble.SetActive(true);
         
-        // Start deactivation coroutine
-        StartCoroutine(DeactivateRubble(rubble, 2f)); // Deactivate after 2 seconds
+        StartCoroutine(DeactivateRubble(rubble, 2f));
 
         return rubble;
     }
