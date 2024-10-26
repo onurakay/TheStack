@@ -9,7 +9,8 @@
 - Stack tiles to build a high tower, using mechanics to keep them aligned.
 - Used an object pool for rubble to cut down on performance issues.
 - Real-time updates to show the player’s score and combo streak on the UI.
-- Gradients to tile colors based on the score.
+- Gradients to colors (tile, background, effects) based on the score.
+- `Mathf.Round()` to snap block positions to two decimal places. ensures blocks align perfectly and there are no small, annoying shifts.
 
 ##
 - **GameState.cs:** Manages and broadcasts score and combo changes.
