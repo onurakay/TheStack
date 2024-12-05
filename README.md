@@ -10,13 +10,11 @@ https://github.com/user-attachments/assets/547878a4-ef67-4270-8577-9f1ac5d2d9de
 - Used an object pool for rubble to cut down on performance issues.
 - Real-time updates to show the player’s score and combo streak on the UI.
 - Gradients to colors (tile, background, effects) based on the score.
-- `Mathf.Round()` to snap block positions to two decimal places. ensures blocks align perfectly and there are no small, annoying shifts.
+- Ensures tiles align perfectly to maintain visual consistency and a polished gameplay experience.
+- Visual effects for tile placement.
+- Managing scores and combo streaks. The game now also keeps a record of the highest score achieved.
 
 ##
-- **GameState.cs:** Manages and broadcasts score and combo changes.
-- **RubblePool.cs:** Implements object pooling for rubble, handling reuse and deactivation.
-- **TheStack.cs:** Controls tile placement, movement, and score updates, integrating game mechanics with visual changes.
-- **UIManager.cs:** Updates UI elements based on game state events.
   
 ## *Future Plans*
 - sound effects
