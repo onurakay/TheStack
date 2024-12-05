@@ -1,6 +1,4 @@
-![TheStack_small](https://github.com/user-attachments/assets/4fa72f89-d02a-4971-97eb-fbb7f3ca3175)
-
-https://github.com/user-attachments/assets/bd94a4bd-0f5b-4c61-b9a9-b7ce39fef151
+https://github.com/user-attachments/assets/eb3fbfee-7a3a-4f35-a805-8741f414028e
 
 # **The Stack Game**
 
