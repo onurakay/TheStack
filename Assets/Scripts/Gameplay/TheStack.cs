@@ -1,18 +1,18 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using System.Collections.Concurrent; // Ensure this is included with other using statements
 
 public class TheStack : MonoBehaviour
 {
-    // Serialized Fields
+    private const float boundsSize = 3.5f;
+    private const float stackMovingSpeed = 5f;
+
     [Header("General Settings")]
     [SerializeField] private Gradient colorGradient;
     [SerializeField] private Material stackMat;
     [SerializeField] private RubblePool rubblePool;
     [SerializeField] private GameMode gameMode = GameMode.Normal;
 
-    // Game Mode Settings
     [Header("Normal Mode Settings")]
     [SerializeField] private float normalErrorMargin = 0.1f;
     [SerializeField] private float normalStackBoundsGain = 0.25f;
@@ -23,11 +23,8 @@ public class TheStack : MonoBehaviour
     [SerializeField] private float easyStackBoundsGain = 0.4f;
     [SerializeField] private float easyComboStartGain = 5f;
 
-    // Constants
-    private const float boundsSize = 3.5f;
-    private const float stackMovingSpeed = 5f;
+    [SerializeField] private float touchCooldownDuration = 0.2f;
 
-    // Game State Variables
     private Dictionary<GameObject, Coroutine> glowCoroutines = new Dictionary<GameObject, Coroutine>();
     private GameObject[] theStack;
     private Vector2 stackBounds = new Vector2(boundsSize, boundsSize);
@@ -52,27 +49,44 @@ public class TheStack : MonoBehaviour
     private Vector3 targetPosition;
     private Vector3 lastTilePosition;
 
-    public GameState gameState;
+    //singleton
+    private GameState gameState;
+
+    private bool isTouchCooldown = false;
 
 
     void Start()
     {
-        // Initialize theStack array and color meshes
         theStack = new GameObject[transform.childCount];
 
         for (int i = 0; i < transform.childCount; i++)
         {
             theStack[i] = transform.GetChild(i).gameObject;
             ColorMesh(theStack[i].GetComponent<MeshFilter>().mesh);
-
-            // Setup and deactivate the GlowEffect initially
             SetupGlowEffect(theStack[i], false);
         }
 
         currentStackIndex = transform.childCount - 1;
-
-        // Set mode-specific settings
         SetGameModeSettings();
+        gameState = GameState.Instance;
+    }
+
+    void Update()
+    {
+        if (gameOver) return;
+
+        if (Input.touchCount > 0)
+        {
+            Touch touch = Input.GetTouch(0);
+            if (touch.phase == TouchPhase.Began)
+            {
+                HandleTilePlacement();
+            }
+        }
+
+        MoveTile();
+        transform.position = Vector3.Lerp(transform.position, targetPosition,
+            stackMovingSpeed * Time.deltaTime); // smooth update stack's position
     }
 
     private void SetGameModeSettings()
@@ -92,89 +106,61 @@ public class TheStack : MonoBehaviour
         }
     }
 
-    void Update()
+    private void HandleTilePlacement()
     {
-        if (gameOver) return;
+        if (isTouchCooldown) return;
 
-        if (Input.GetMouseButtonDown(0))
+        if (PlaceTile()) // returns true or fasle
         {
-            if (PlaceTile()) // if placement is successful
-            {
-                SpawnTile();
-                currentScore++;
-                UpdateGameState();
-            }
-            else
-            {
-                // change restarting the scene if placement fails with menu
-                UnityEngine.SceneManagement.SceneManager.LoadScene(
-                    UnityEngine.SceneManagement.SceneManager.GetActiveScene().name);
-            }
-        }
-
-        MoveTile(); // Move the current tile back and forth
-        transform.position = Vector3.Lerp(transform.position, targetPosition,
-            stackMovingSpeed * Time.deltaTime); // Smoothly update the stack's position
-    }
-
-    void ColorMesh(Mesh mesh)
-    {
-        // Apply gradient coloring based on the current score
-        Vector3[] vertices = mesh.vertices;
-        Color32[] colors = new Color32[vertices.Length];
-        float t = Mathf.Sin(currentScore * 0.1f);
-
-        for (int i = 0; i < vertices.Length; i++)
-        {
-            colors[i] = colorGradient.Evaluate(t);
-        }
-
-        mesh.colors32 = colors;
-    }
-
-    void MoveTile()
-    {
-        // Move the current tile along the appropriate axis
-        tileTransition += Time.deltaTime * tileSpeed;
-
-        if (isMovingHorizontal)
-        {
-            theStack[currentStackIndex].transform.localPosition =
-                new Vector3(Mathf.Sin(tileTransition) * boundsSize, currentScore, secondaryPosition);
+            StartCoroutine(TouchCooldown());
+            SpawnTile();
+            VibrateOnPlacement();
+            currentScore++;
+            UpdateGameState();
         }
         else
         {
-            theStack[currentStackIndex].transform.localPosition =
-                new Vector3(secondaryPosition, currentScore, Mathf.Sin(tileTransition) * boundsSize);
+            gameState.TriggerGameOver();
+        }
+    }
+
+    private void HandleTouchInput()
+    {
+        if (Input.touchCount > 0)
+        {
+            // Only consider the first touch to avoid conflicts
+            Touch touch = Input.GetTouch(0);
+            if (touch.phase == TouchPhase.Began)
+            {
+                HandleTilePlacement();
+            }
         }
     }
 
     bool PlaceTile()
     {
-        // Handles the placement of a tile and checks for alignment
         Transform t = theStack[currentStackIndex].transform;
 
-        if (isMovingHorizontal)
+        if (isMovingHorizontal) //horizontal
         {
             float deltaX = lastTilePosition.x - t.position.x;
 
-            if (Mathf.Abs(deltaX) > errorMargin) // Misaligned
+            if (Mathf.Abs(deltaX) > errorMargin) // misaligned
             {
-                currentCombo = 0; // Reset combo
-                stackBounds.x -= Mathf.Abs(deltaX); // Shrink the stack bounds
+                currentCombo = 0;
+                stackBounds.x -= Mathf.Abs(deltaX); // shrink the stack bounds
 
                 if (stackBounds.x <= 0) return false; // Game over if the stack bounds reach zero
 
                 float middle = lastTilePosition.x + t.localPosition.x / 2f;
                 t.localScale = new Vector3(stackBounds.x, 1f, stackBounds.y);
 
-                // Create a rubble piece for the cut-off part
                 CreateRubble(new Vector3(
                     t.position.x > 0 ? t.position.x + t.localScale.x / 2f : t.position.x - t.localScale.x / 2f,
                     t.position.y, t.position.z),
                     new Vector3(Mathf.Abs(deltaX), 1f, t.localScale.z));
 
-                // Snap to the rounded position to prevent drift
+                // snapping to the rounded position
                 t.localPosition = new Vector3(
                     Mathf.Round((middle - lastTilePosition.x / 2f) * 100f) / 100f,
                     currentScore,
@@ -183,8 +169,8 @@ public class TheStack : MonoBehaviour
             }
             else
             {
-                currentCombo++; // Increase combo
-                // Align perfectly with the previous tile
+                currentCombo++;
+                // alignment with the previous tile
                 t.localPosition = new Vector3(
                     Mathf.Round(lastTilePosition.x * 100f) / 100f,
                     currentScore,
@@ -192,11 +178,11 @@ public class TheStack : MonoBehaviour
                 );
             }
         }
-        else // Vertical movement
+        else // vertical
         {
             float deltaZ = lastTilePosition.z - t.position.z;
 
-            if (Mathf.Abs(deltaZ) > errorMargin) // Misaligned
+            if (Mathf.Abs(deltaZ) > errorMargin) // misaligned
             {
                 currentCombo = 0;
                 stackBounds.y -= Mathf.Abs(deltaZ);
@@ -211,7 +197,7 @@ public class TheStack : MonoBehaviour
                     t.position.z > 0 ? t.position.z + t.localScale.z / 2f : t.position.z - t.localScale.z / 2f),
                     new Vector3(t.localScale.x, 1f, Mathf.Abs(deltaZ)));
 
-                // Snap to the rounded position
+                // snapping to the rounded position
                 t.localPosition = new Vector3(
                     Mathf.Round(lastTilePosition.x * 100f) / 100f,
                     currentScore,
@@ -229,33 +215,37 @@ public class TheStack : MonoBehaviour
             }
         }
 
-        // Start the glow effect for the placed tile
         SetupGlowEffect(t.gameObject, true);
 
+        if (currentCombo % 3 == 0 && currentCombo > 0)
+        {
+            PlayComboEffect(t.gameObject);
+        }
         secondaryPosition = isMovingHorizontal ? t.localPosition.x : t.localPosition.z;
         isMovingHorizontal = !isMovingHorizontal;
 
         return true;
     }
 
-    void CreateRubble(Vector3 pos, Vector3 scale)
+    void MoveTile()
     {
-        // Generate a rubble piece at the given position and scale
-        GameObject rubble = rubblePool.GetRubble();
-        rubble.transform.localPosition = pos;
-        rubble.transform.localScale = scale;
-        rubble.GetComponent<Rigidbody>().velocity = Vector3.zero;
+        tileTransition += Time.deltaTime * tileSpeed;
 
-        rubble.GetComponent<MeshRenderer>().material = stackMat;
-        ColorMesh(rubble.GetComponent<MeshFilter>().mesh);
-        SetupGlowEffect(rubble, false); // Disable glow for rubble
+        if (isMovingHorizontal)
+        {
+            theStack[currentStackIndex].transform.localPosition =
+                new Vector3(Mathf.Sin(tileTransition) * boundsSize, currentScore, secondaryPosition);
+        }
+        else
+        {
+            theStack[currentStackIndex].transform.localPosition =
+                new Vector3(secondaryPosition, currentScore, Mathf.Sin(tileTransition) * boundsSize);
+        }
     }
-
 
 
     void SpawnTile()
     {
-        // Store the current tile's index as the previous one (since we are about to place the next tile)
         previousStackIndex = currentStackIndex;
 
         lastTilePosition = theStack[currentStackIndex].transform.localPosition;
@@ -272,45 +262,15 @@ public class TheStack : MonoBehaviour
         ColorMesh(theStack[currentStackIndex].GetComponent<MeshFilter>().mesh);
     }
 
-    void SetupGlowEffect(GameObject tile, bool activate)
+    private IEnumerator TouchCooldown()
     {
-        // If there's an existing coroutine for this tile, stop it
-        if (glowCoroutines.ContainsKey(tile))
-        {
-            StopCoroutine(glowCoroutines[tile]);
-            glowCoroutines.Remove(tile);
-        }
-
-        if (activate)
-        {
-            // Start the fade-in and fade-out effect
-            Coroutine fadeCoroutine = StartCoroutine(FadeInOutGlowEffect(tile));
-            glowCoroutines[tile] = fadeCoroutine;
-        }
-        else
-        {
-            // Ensure the glow is fully transparent
-            Transform glowEffect = tile.transform.Find("GlowEffect");
-            if (glowEffect != null)
-            {
-                Transform plane = glowEffect.Find("Plane");
-                if (plane != null)
-                {
-                    MeshRenderer renderer = plane.GetComponent<MeshRenderer>();
-                    if (renderer != null)
-                    {
-                        Material mat = renderer.material;
-                        Color color = mat.color;
-                        mat.color = new Color(color.r, color.g, color.b, 0f);
-                    }
-                }
-            }
-        }
+        isTouchCooldown = true;
+        yield return new WaitForSeconds(touchCooldownDuration);
+        isTouchCooldown = false;
     }
 
     IEnumerator FadeInOutGlowEffect(GameObject tile)
     {
-        // Get the GlowEffect's Plane child
         Transform glowEffect = tile.transform.Find("GlowEffect");
         if (glowEffect != null)
         {
@@ -325,7 +285,7 @@ public class TheStack : MonoBehaviour
                     float duration = 1f;
                     float halfDuration = duration / 2f;
 
-                    // Fade in
+                    // fade in
                     float elapsed = 0f;
                     while (elapsed < halfDuration)
                     {
@@ -336,7 +296,7 @@ public class TheStack : MonoBehaviour
                     }
                     mat.color = new Color(color.r, color.g, color.b, 1f);
 
-                    // Fade out
+                    // fade out
                     elapsed = 0f;
                     while (elapsed < halfDuration)
                     {
@@ -363,6 +323,113 @@ public class TheStack : MonoBehaviour
         }
     }
 
+    void ColorMesh(Mesh mesh)
+    {
+        Vector3[] vertices = mesh.vertices;
+        Color32[] colors = new Color32[vertices.Length];
+        float t = Mathf.Sin(currentScore * 0.1f);
+
+        for (int i = 0; i < vertices.Length; i++)
+        {
+            colors[i] = colorGradient.Evaluate(t);
+        }
+
+        mesh.colors32 = colors;
+    }
+
+    void SetupGlowEffect(GameObject tile, bool activate)
+    {
+        // killing existing coroutine for the tile
+        if (glowCoroutines.ContainsKey(tile))
+        {
+            StopCoroutine(glowCoroutines[tile]);
+            glowCoroutines.Remove(tile);
+        }
+
+        if (activate)
+        {
+            // fadein, fadeout effect
+            Coroutine fadeCoroutine = StartCoroutine(FadeInOutGlowEffect(tile));
+            glowCoroutines[tile] = fadeCoroutine;
+        }
+        else
+        {
+            Transform glowEffect = tile.transform.Find("GlowEffect");
+            if (glowEffect != null)
+            {
+                Transform plane = glowEffect.Find("Plane");
+                if (plane != null)
+                {
+                    MeshRenderer renderer = plane.GetComponent<MeshRenderer>();
+                    if (renderer != null)
+                    {
+                        Material mat = renderer.material;
+                        Color color = mat.color;
+                        mat.color = new Color(color.r, color.g, color.b, 0f);
+                    }
+                }
+            }
+        }
+    }
+
+    void CreateRubble(Vector3 pos, Vector3 scale)
+    {
+        GameObject rubble = rubblePool.GetRubble();
+        rubble.transform.localPosition = pos;
+        rubble.transform.localScale = scale;
+        rubble.GetComponent<Rigidbody>().velocity = Vector3.zero;
+
+        rubble.GetComponent<MeshRenderer>().material = stackMat;
+        ColorMesh(rubble.GetComponent<MeshFilter>().mesh);
+        SetupGlowEffect(rubble, false);
+    }
+
+    void VibrateOnPlacement()
+    {
+        if (Application.platform == RuntimePlatform.Android)
+        {
+            Handheld.Vibrate();
+        }
+        else if (Application.platform == RuntimePlatform.IPhonePlayer)
+        {
+            Handheld.Vibrate();
+        }
+    }
+
+    void PlayMilestoneEffect(GameObject tile)
+    {
+        Transform particleEffect = tile.transform.Find("MilestoneEffect");
+        if (particleEffect != null)
+        {
+            var particleSystem = particleEffect.GetComponent<ParticleSystem>();
+            if (particleSystem != null)
+            {
+                particleSystem.Play();
+            }
+            else
+            {
+                Debug.LogWarning($"No ParticleSystem found on {particleEffect.name}.");
+            }
+        }
+        else
+        {
+            Debug.LogWarning($"No MilestoneEffect child found in {tile.name}.");
+        }
+    }
+
+    void PlayComboEffect(GameObject tile)
+    {
+        Transform comboEffect = tile.transform.Find("ComboEffect");
+
+        // multiple effects for the future
+        var particleSystems = comboEffect.GetComponentsInChildren<ParticleSystem>();
+        foreach (var ps in particleSystems)
+        {
+            ps.Play();
+        }
+
+    }
+
     void UpdateGameState()
     {
         gameState.SetScore(currentScore);
@@ -370,36 +437,7 @@ public class TheStack : MonoBehaviour
 
         if (currentScore % 5 == 0)
         {
-            PlayParticleEffect(theStack[previousStackIndex]); // Trigger on the last placed block
+            PlayMilestoneEffect(theStack[previousStackIndex]);
         }
     }
-
-void PlayParticleEffect(GameObject tile)
-{
-    Transform particleEffect = tile.transform.Find("MilestoneEffect");
-    if (particleEffect != null)
-    {
-        var particleSystem = particleEffect.GetComponent<ParticleSystem>();
-        if (particleSystem != null)
-        {
-            // Check if the combo is greater than 0 and set the color to red
-            if (currentCombo > 0)
-            {
-                var main = particleSystem.main;
-                main.startColor = Color.red; // Set the milestone effect color to red
-            }
-
-            particleSystem.Play();
-        }
-        else
-        {
-            Debug.LogWarning($"No ParticleSystem found on {particleEffect.name}.");
-        }
-    }
-    else
-    {
-        Debug.LogWarning($"No MilestoneEffect child found in {tile.name}.");
-    }
-}
-
 }
